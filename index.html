@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>🌎 Cultural Quest: Discover, Learn & Celebrate!</title>
+<style>
+:root{--bg:#bfe9ff;--card:#fff;--ink:#1f2a44;--mut:#55627f;--pri:#7048e8;--ok:#188a5b;--okb:#d3f9e4;--bad:#c2410c;--badb:#ffe3d1;--bd:#dfe6f5;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141a3d;--card:#2a3163;--ink:#f4f6ff;--mut:#bcc6ea;--ok:#6ee7a8;--okb:#0f4a34;--bad:#ffb38a;--badb:#5a2a12;--bd:#3d4680}}
+:root[data-theme="dark"]{--bg:#141a3d;--card:#2a3163;--ink:#f4f6ff;--mut:#bcc6ea;--ok:#6ee7a8;--okb:#0f4a34;--bad:#ffb38a;--badb:#5a2a12;--bd:#3d4680}
+html{min-height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:17px/1.4 "Trebuchet MS","Segoe UI",system-ui,sans-serif;display:flex;justify-content:center}
+#wrap{width:100%;max-width:840px;padding:8px}
+canvas#c{width:100%;height:auto;max-height:58vh;object-fit:contain;display:block;border-radius:18px;border:4px solid var(--card);touch-action:manipulation;background:#8fd3ff}
+#ctl{display:flex;gap:8px;margin-top:8px}#ctl .btn{flex:1;font-size:1.3rem;min-height:72px;touch-action:none;user-select:none;-webkit-user-select:none}
+@media (max-height:500px){.tip{display:none}}
+.tip{text-align:center;color:var(--mut);font-size:.9rem;margin:6px 0}
+#ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(20,25,60,.6);padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px));overflow:auto;z-index:5}
+#ov.on{display:flex}
+.card{background:var(--card);border-radius:22px;padding:18px;max-width:460px;width:100%;text-align:center;margin:auto}
+.card h1{margin:.2em 0;font-size:1.9rem}
+.q{font-size:1.25rem;font-weight:700;margin:8px 0}
+.es{background:var(--okb);border-radius:12px;padding:8px 12px;margin:8px 0;display:none}
+.es.on{display:block}
+.opts{display:grid;gap:10px;margin-top:12px}
+.btn{font:inherit;font-weight:700;border:2px solid var(--bd);background:var(--card);color:var(--ink);border-radius:16px;padding:10px 14px;min-height:50px;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.15)}
+.btn:hover:not(:disabled){border-color:var(--pri)}
+.btn:focus-visible{outline:3px solid var(--pri);outline-offset:2px}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+.btn.ok{background:var(--okb);border-color:var(--ok)}
+.btn.no{background:var(--badb);border-color:var(--bad)}
+.fb{margin-top:12px;padding:10px;border-radius:14px}
+.fb.ok{background:var(--okb)}.fb.no{background:var(--badb)}
+.cf{position:fixed;top:-2rem;font-size:1.7rem;animation:fall 2.2s linear forwards;pointer-events:none;z-index:9}
+@keyframes fall{to{transform:translateY(110vh) rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.cf{animation:none}}
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="c" width="800" height="400" aria-label="Cultural Quest game"></canvas>
+<div id="ctl"><button class="btn" id="tb">⚡ TURBO<br><small>(mantén / hold)</small></button><button class="btn pri" id="jb">⬆️ JUMP<br><small>SALTAR</small></button></div>
