@@ -40,3 +40,140 @@ canvas#c{width:100%;height:auto;max-height:58vh;object-fit:contain;display:block
 <div id="wrap">
 <canvas id="c" width="800" height="400" aria-label="Cultural Quest game"></canvas>
 <div id="ctl"><button class="btn" id="tb">⚡ TURBO<br><small>(mantén / hold)</small></button><button class="btn pri" id="jb">⬆️ JUMP<br><small>SALTAR</small></button></div>
+<p class="tip">Space / tap = jump · Shift / ⚡ = turbo · Jump to eat 🍌 · Avoid rocks 🪨 · Answer at the signs 🚩</p>
+</div>
+<div id="ov"></div>
+<script>
+const $=s=>document.querySelector(s),cv=$('#c'),c=cv.getContext('2d'),W=800,H=400,GY=330,PX=140,TOT=8;
+const rnd=(a,b)=>a+Math.random()*(b-a),sh=a=>[...a].sort(()=>Math.random()-.5);
+/* Flags are drawn with code (no images). d: h=horizontal stripes, v=vertical. */
+const FL=[
+{c:'Colombia',ce:'Colombia',n:'Colombian',d:'h',k:['#fcd116','#003893','#ce1126'],w:[2,1,1],f:['Colombia has delicious coffee and colorful carnivals!','¡Colombia tiene café delicioso y carnavales coloridos!']},
+{c:'Japan',ce:'Japón',n:'Japanese',k:['#fff'],x:'jp',f:['Japan has beautiful cherry trees called sakura.','Japón tiene hermosos cerezos llamados sakura.']},
+{c:'Brazil',ce:'Brasil',n:'Brazilian',k:['#009c3b'],x:'br',f:['Brazil celebrates a big, colorful Carnival.','Brasil celebra un Carnaval grande y colorido.']},
+{c:'Mexico',ce:'México',n:'Mexican',d:'v',k:['#006847','#fff','#ce1126'],x:'mx',f:['On the Day of the Dead, families remember loved ones with flowers.','En el Día de los Muertos, las familias recuerdan a sus seres queridos con flores.']},
+{c:'Italy',ce:'Italia',n:'Italian',d:'v',k:['#009246','#fff','#ce2b37'],f:['Italy has many interesting old cities.','Italia tiene muchas ciudades antiguas e interesantes.']},
+{c:'France',ce:'Francia',n:'French',d:'v',k:['#0055a4','#fff','#ef4135'],f:['France has beautiful museums and traditional bakeries.','Francia tiene hermosos museos y panaderías tradicionales.']},
+{c:'Peru',ce:'Perú',n:'Peruvian',d:'v',k:['#d91023','#fff','#d91023'],f:['Machu Picchu is an interesting ancient city in the mountains.','Machu Picchu es una interesante ciudad antigua en las montañas.']},
+{c:'Spain',ce:'España',n:'Spanish',d:'h',k:['#aa151b','#f1bf00','#aa151b'],w:[1,2,1],f:['Spain has many festivals, like La Tomatina.','España tiene muchos festivales, como La Tomatina.']},
+{c:'Germany',ce:'Alemania',n:'German',d:'h',k:['#000','#dd0000','#ffce00'],f:['Germany has beautiful castles and green forests.','Alemania tiene hermosos castillos y bosques verdes.']},
+{c:'Ireland',ce:'Irlanda',n:'Irish',d:'v',k:['#169b62','#fff','#ff883e'],f:['Ireland is very green and has traditional music.','Irlanda es muy verde y tiene música tradicional.']},
+{c:'Argentina',ce:'Argentina',n:'Argentinian',d:'h',k:['#74acdf','#fff','#74acdf'],x:'ar',f:['Iguazú Falls are big and beautiful. They are shared with Brazil.','Las Cataratas del Iguazú son grandes y hermosas. Se comparten con Brasil.']}
+];
+const FOOD=[['🍌','banana'],['🍍','pineapple'],['🍉','watermelon'],['🍓','strawberry'],['🍎','apple'],['🥑','avocado'],['🌽','corn'],['☕','coffee'],['❤️','life']];
+function flag(g,f,x,y,w,h){
+ if(f.d){const ws=f.w||[1,1,1],T=ws.reduce((a,b)=>a+b);let o=0;f.k.forEach((k,i)=>{const s=ws[i]/T;g.fillStyle=k;f.d=='h'?g.fillRect(x,y+o*h,w,s*h+1):g.fillRect(x+o*w,y,s*w+1,h);o+=s})}
+ else{g.fillStyle=f.k[0];g.fillRect(x,y,w,h)}
+ const dot=(r,col)=>{g.fillStyle=col;g.beginPath();g.arc(x+w/2,y+h/2,r,0,7);g.fill()};
+ if(f.x=='jp')dot(h*.3,'#bc002d');if(f.x=='mx')dot(h*.13,'#8b5a2b');if(f.x=='ar')dot(h*.11,'#f6b40e');
+ if(f.x=='br'){g.fillStyle='#ffdf00';g.beginPath();g.moveTo(x+w*.5,y+h*.12);g.lineTo(x+w*.9,y+h*.5);g.lineTo(x+w*.5,y+h*.88);g.lineTo(x+w*.1,y+h*.5);g.fill();dot(h*.22,'#002776')}
+ g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=1.5;g.strokeRect(x,y,w,h)}
+let ac;function beep(f,d,t){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.type=t||'sine';g.gain.value=.07;o.connect(g);g.connect(ac.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.stop(ac.currentTime+d)}catch(e){}}
+function say(t){try{const u=new SpeechSynthesisUtterance(t);u.lang='en-US';u.rate=.85;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+function boom(){for(let i=0;i<26;i++){const s=document.createElement('span');s.className='cf';s.textContent=['🎉','⭐','🎊','✨'][i%4];s.style.left=Math.random()*100+'vw';s.style.animationDelay=Math.random()*.7+'s';document.body.appendChild(s);setTimeout(()=>s.remove(),3000)}}
+const ov=$('#ov'),show=h=>{ov.innerHTML='<div class="card">'+h+'</div>';ov.classList.add('on')},hide=()=>ov.classList.remove('on');
+const M=[
+{n:'Passport Mission',es:'Países, banderas y gentilicios',i:'🛂',s0:'#5cc8ff',s1:'#d8f4ff',h:'#5cbf6a',g:'#43a34f',b:'🛂 Passport Pro'},
+{n:'Food Market',es:'Comidas y adjetivos',i:'🍲',s0:'#ffb46b',s1:'#ffe9c9',h:'#e0a03e',g:'#7cb342',b:'🍲 Food Explorer',qs:[
+ {ic:'🍣',q:'Sushi is a traditional food from ___.',es:'El sushi es una comida tradicional de ___.',o:['Japan','Mexico','Germany']},
+ {ic:'🌮',q:'Tacos are a traditional food from ___.',es:'Los tacos son una comida tradicional de ___.',o:['Mexico','Japan','Ireland'],f:['Every country has many traditional dishes, not just one!','¡Cada país tiene muchos platos tradicionales, no solo uno!']},
+ {ic:'🍲',q:'Ajiaco is a ___ soup from Bogotá, Colombia.',es:'El ajiaco es una sopa ___ de Bogotá, Colombia.',o:['delicious','angry','tall'],f:['Ajiaco has chicken, potatoes and corn.','El ajiaco lleva pollo, papas y mazorca.']},
+ {ic:'🍉',q:'The fruit market is so ___: red, yellow and green!',es:'¡El mercado de frutas es muy ___: rojo, amarillo y verde!',o:['colorful','quiet','heavy'],f:['Colombia has many tropical fruits: lulo, guanábana, maracuyá.','Colombia tiene muchas frutas tropicales: lulo, guanábana, maracuyá.']},
+ {ic:'🥟',q:'An empanada is a ___ food. Many families make it at home.',es:'La empanada es una comida ___. Muchas familias la hacen en casa.',o:['traditional','cold','tiny']},
+ {ic:'🍕',q:'Pizza is a traditional food from ___.',es:'La pizza es una comida tradicional de ___.',o:['Italy','Japan','Brazil']}]},
+{n:'Adjective Island',es:'Adjetivos para describir',i:'🏝️',s0:'#4dd0e1',s1:'#e0f7fa',h:'#26a69a',g:'#66bb6a',b:'🏝️ Word Master',qs:[
+ {ic:'🎭',q:'Look at the mask! It is red, blue and yellow. It is ___.',es:'¡Mira la máscara! Es roja, azul y amarilla.',o:['colorful','quiet','cold']},
+ {ic:'🏰',q:'Cartagena has ___ old walls.',es:'Cartagena tiene murallas antiguas ___.',o:['beautiful','hungry','angry'],f:['The walls of Cartagena are hundreds of years old.','Las murallas de Cartagena tienen cientos de años.']},
+ {ic:'👵',q:'My grandmother cooks a ___ family recipe.',es:'Mi abuela cocina una receta familiar ___.',o:['traditional','dangerous','angry']},
+ {ic:'📚',q:'The history of my city is ___. I love to learn about it.',es:'La historia de mi ciudad es ___. Me encanta aprenderla.',o:['interesting','terrible','empty']},
+ {ic:'🌈',q:'Which word means "colorido"?',es:'¿Qué palabra significa "colorido"?',o:['colorful','delicious','traditional'],f:['Adjectives describe people, places and things.','Los adjetivos describen personas, lugares y cosas.']},
+ {ic:'🌅',q:'The sunset is so ___! Look at the sky.',es:'¡El atardecer es muy ___! Mira el cielo.',o:['beautiful','angry','heavy']}]},
+{n:'Celebration Party',es:'Celebraciones del mundo',i:'🎉',s0:'#b197fc',s1:'#f3e8ff',h:'#9775fa',g:'#51cf66',b:'🎉 Party Star',qs:[
+ {ic:'🪔',q:'Diwali is a celebration from ___.',es:'Diwali es una celebración de ___.',o:['India','Peru','Italy'],f:['Diwali is the festival of lights.','Diwali es el festival de las luces.']},
+ {ic:'💐',q:'The Day of the Dead is a celebration from ___.',es:'El Día de los Muertos es una celebración de ___.',o:['Mexico','Japan','Spain'],f:['Families remember loved ones with flowers and food.','Las familias recuerdan a sus seres queridos con flores y comida.']},
+ {ic:'🌸',q:'The Flower Festival in Medellín is in ___.',es:'La Feria de las Flores en Medellín es en ___.',o:['August','March','November'],f:['The silleteros carry flowers on their backs!','¡Los silleteros cargan flores en la espalda!']},
+ {ic:'🕯️',q:'On December 7, families light candles. It is the Day of the ___.',es:'El 7 de diciembre las familias encienden velas.',o:['Little Candles','Little Kites','Little Masks'],f:['Día de las Velitas starts the Christmas season in Colombia.','El Día de las Velitas inicia la Navidad en Colombia.']},
+ {ic:'🎆',q:'Colombia celebrates Independence Day on July ___.',es:'Colombia celebra el Día de la Independencia el 20 de julio.',o:['20','4','12']},
+ {ic:'🎂',q:'On my birthday, we sing, eat cake and ___.',es:'En mi cumpleaños cantamos, comemos pastel y ___.',o:['celebrate','sleep','cry'],f:['A celebration is a special day to share with family.','Una celebración es un día especial para compartir en familia.']}]},
+{n:'Colombia Challenge',es:'Reto final: ¡mi cultura!',i:'💛',s0:'#ffd43b',s1:'#fff9db',h:'#4dabf7',g:'#2f9e44',b:'🏆 Culture Champion',qs:[
+ {ic:'🍽️',q:'Which one is a traditional Colombian dish?',es:'¿Cuál es un plato tradicional colombiano?',o:['Bandeja paisa','Sushi','Tacos'],f:['Colombia has different dishes in each region.','Colombia tiene platos distintos en cada región.']},
+ {ic:'🎶',q:'Vallenato is traditional Colombian ___.',es:'El vallenato es ___ tradicional colombiana.',o:['music','fruit','sport']},
+ {ic:'🎭',q:'The Carnival of Barranquilla is ___ and full of dance.',es:'El Carnaval de Barranquilla es ___ y lleno de baile.',o:['colorful','silent','empty'],f:['UNESCO recognizes this carnival as world cultural heritage.','La UNESCO reconoce este carnaval como patrimonio cultural.']},
+ {ic:'☕',q:'Colombian coffee is famous around the world. It is ___.',es:'El café colombiano es famoso en el mundo. Es ___.',o:['delicious','dangerous','silent']},
+ {ic:'🤝',q:'To respect other cultures, I ___.',es:'Para respetar otras culturas, yo ___.',o:['listen and learn','make fun of them','ignore them'],f:['Respect means learning from every culture.','Respetar es aprender de todas las culturas.']},
+ {ic:'💛',free:1,q:'My favorite Colombian celebration is ___.',es:'Mi celebración colombiana favorita es ___. (¡Todas son correctas!)',o:['Carnival','Feria de las Flores','Christmas (Navidad)','Independence Day'],f:['Every answer is right: your culture is special!','¡Todas son correctas: tu cultura es especial!']}]}
+];
+const flagQs=()=>[FL[0],...sh(FL.slice(1)).slice(0,4)].map((f,i)=>{const r=sh(FL.filter(x=>x!==f)).slice(0,2);return i%2==0?{fl:f,q:`This flag is from <b>${f.c}</b>.<br>People from ${f.c} are ___.`,es:`Esta bandera es de ${f.ce}. Las personas de ese país son ___ (gentilicio).`,o:[f.n,...r.map(x=>x.n)],f:f.f}:{fl:f,q:`She is <b>${f.n}</b>.<br>She is from ___.`,es:`Ella es ${f.n}. ¿De qué país es?`,o:[f.c,...r.map(x=>x.c)],f:f.f}});
+const mk=(st,mi,sc)=>({st,mi,t:0,bg:0,y:GY,vy:0,jb:0,lives:6,score:sc,gi:0,gt:0,so:1,ob:[],fd:[],pp:[],gate:null,inv:0,eat:0,ok:0,qs:mi?M[mi].qs.map(q=>({...q})):flagQs()});
+const S={st:[],bd:[],tot:0};let G=mk('menu',0,0);
+function menu(){G=mk('menu',0,S.tot);show(`<h1>🌎 Cultural Quest</h1><p><b>Discover, Learn & Celebrate!</b></p><p style="text-align:left;font-size:.95rem">🏃 <b>JUMP</b> salta las rocas · ⚡ <b>TURBO</b> (mantén presionado) corre más rápido.<br>🍌 Salta para <b>comer frutas</b> y ganar puntos.<br>❤️ Recoge corazones y responde bien para ganar vidas.<br>🚩 En cada letrero responde en inglés. ¡Cada misión tiene su tema!</p><div class="opts">${M.map((m,i)=>{const lk=i>0&&!S.st[i-1];return `<button class="btn mb" data-i="${i}" ${lk?'disabled':''}>${lk?'🔒':m.i} ${m.n} ${'⭐'.repeat(S.st[i]||0)}<br><small>${m.es}</small></button>`}).join('')}</div><p>${S.bd.filter(Boolean).join(' &nbsp; ')} <small>⭐ ${S.tot}</small></p><small>📱 Gira el celular para jugar mejor.</small>`);ov.querySelectorAll('.mb').forEach(b=>b.onclick=()=>intro(+b.dataset.i))}
+function intro(i){G=mk('intro',i,S.tot);show(`<p style="font-size:3rem;margin:0">${M[i].i}</p><h1>${M[i].n}</h1><p>${M[i].es}</p><p><small>${G.qs.length} 🚩 signs · 6 ❤️</small></p><button class="btn pri" id="go">Go! ▶ ¡Vamos!</button>`);$('#go').onclick=()=>{G.st='run';hide();beep(660,.1)}}
+const jump=()=>{if(G.st=='run')G.jb=.12};
+addEventListener('keydown',e=>{if(e.code=='Space'||e.code=='ArrowUp'){e.preventDefault();jump()}});
+cv.addEventListener('pointerdown',jump);$('#jb').addEventListener('pointerdown',e=>{e.preventDefault();jump()});
+const tb=$('#tb');tb.addEventListener('pointerdown',e=>{e.preventDefault();G.tb=1});['pointerup','pointercancel','pointerleave'].forEach(v=>tb.addEventListener(v,()=>{G.tb=0}));
+addEventListener('keydown',e=>{if(e.key=='Shift'||e.code=='ArrowRight')G.tb=1});addEventListener('keyup',e=>{if(e.key=='Shift'||e.code=='ArrowRight')G.tb=0});
+function hit(){G.lives--;G.inv=2;beep(150,.3,'square');if(G.lives<=0){const m=G.mi;G.st='over';show(`<h1>😅 Oh no!</h1><p>Don't worry! Keep going from this sign. ¡Sigue desde este letrero!</p><div class="opts"><button class="btn pri" id="go">Continue ▶ Seguir jugando</button><button class="btn" id="mn">🏠 Menu</button></div>`);$('#go').onclick=()=>{G.lives=6;G.ob=[];G.fd=[];G.inv=2;G.so=1;G.st='run';hide()};$('#mn').onclick=menu}}
+function upd(dt){
+ G.t+=dt;G.gt+=dt;const sp=(220+G.gi*8+G.mi*6)*(G.tb?1.8:1);G.bg+=sp*dt;G.jb-=dt;G.inv-=dt;G.eat-=dt;G.so-=dt;
+ if(G.jb>0&&G.y>=GY){G.vy=-730;G.jb=0;beep(520,.08)}
+ G.vy+=1900*dt;G.y=Math.min(GY,G.y+G.vy*dt);if(G.y>=GY)G.vy=0;
+ if(G.so<=0&&!G.gate&&G.gt<3){const w=rnd(38,58),h=rnd(32,48);G.ob.push({x:W+20,w,h});if(Math.random()<.75)G.fd.push({x:W+20+w/2,y:GY-rnd(95,125),i:Math.random()<.15?FOOD.length-1:Math.random()*(FOOD.length-1)|0});G.so=rnd(1.8,2.8)}
+ if(G.gt>5&&!G.gate)G.gate={x:W+40};
+ G.ob.forEach(o=>{o.x-=sp*dt;if(G.inv<=0&&o.x<PX+8&&o.x+o.w>PX-8&&G.y>GY-o.h+14)hit()});
+ G.fd.forEach(f=>{f.x-=sp*dt;if(!f.g&&Math.abs(f.x-PX)<32&&f.y>=G.y-95&&f.y<=G.y+8){f.g=1;const L=FOOD[f.i][1]=='life';G.score+=L?5:10;if(L)G.lives=Math.min(8,G.lives+1);G.eat=.4;G.pp.push({x:f.x,y:f.y,t:1,s:L?'+1 ❤️':FOOD[f.i][1]+'! +10'});beep(880,.1)}});
+ G.ob=G.ob.filter(o=>o.x>-80);G.fd=G.fd.filter(f=>f.x>-40&&!f.g);
+ G.pp.forEach(p=>{p.t-=dt;p.y-=40*dt});G.pp=G.pp.filter(p=>p.t>0);
+ if(G.gate){G.gate.x-=sp*dt;if(G.gate.x<PX+30&&G.st=='run')openQ()}}
+function kid(x,y,t,air,eat){
+ const s=air?.3:Math.sin(t*14);c.lineCap='round';c.shadowColor='rgba(15,20,60,.95)';c.shadowBlur=6;
+ if(air||eat>0){c.fillStyle='rgba(255,224,80,.35)';c.beginPath();c.ellipse(x,y-50,36,64,0,0,7);c.fill();c.fillStyle='rgba(255,255,255,.35)';c.beginPath();c.ellipse(x,y-50,22,50,0,0,7);c.fill()}
+ c.lineWidth=9;c.strokeStyle='#1d3f9e';c.beginPath();c.moveTo(x,y-26);c.lineTo(air?x+9:x+s*14,air?y-8:y);c.moveTo(x,y-26);c.lineTo(air?x-9:x-s*14,air?y-3:y);c.stroke();
+ c.fillStyle='#d62828';[[air?x+9:x+s*14,air?y-8:y],[air?x-9:x-s*14,air?y-3:y]].forEach(p=>{c.beginPath();c.arc(p[0],p[1],6,0,7);c.fill()});
+ c.fillStyle='#2f6fed';c.fillRect(x-14,y-58,28,34);c.fillStyle='#d62828';c.fillRect(x-14,y-36,28,7);
+ c.lineWidth=6;c.strokeStyle='#f1c27d';c.beginPath();c.moveTo(x,y-52);c.lineTo(air?x+18:x-s*13,air?y-74:y-34);c.moveTo(x,y-52);c.lineTo(air?x-14:x+s*13,air?y-68:y-34);c.stroke();
+ c.fillStyle='#f1c27d';c.beginPath();c.arc(x,y-72,15,0,7);c.fill();
+ c.fillStyle='#ffd43b';c.strokeStyle='#e0a800';c.lineWidth=2;c.beginPath();c.moveTo(x-16,y-70);c.lineTo(x-25,y-92);c.lineTo(x-10,y-84);c.lineTo(x-8,y-106);c.lineTo(x,y-88);c.lineTo(x+9,y-108);c.lineTo(x+12,y-84);c.lineTo(x+27,y-94);c.lineTo(x+16,y-70);c.lineTo(x+14,y-80);c.lineTo(x-14,y-80);c.closePath();c.fill();c.stroke();
+ c.fillStyle='#ce1126';c.fillRect(x-15,y-80,10,4);c.fillStyle='#003893';c.fillRect(x-5,y-80,12,4);c.fillStyle='#fcd116';c.fillRect(x+7,y-80,8,4);
+ c.strokeStyle='#222';c.lineWidth=2.5;c.beginPath();c.moveTo(x+1,y-77);c.lineTo(x+11,y-74);c.stroke();
+ c.fillStyle='#222';c.beginPath();c.arc(x+7,y-70,2.6,0,7);c.fill();
+ if(eat>0){c.fillStyle='#c0392b';c.beginPath();c.ellipse(x+8,y-62,5,4,0,0,7);c.fill()}
+ else{c.strokeStyle='#8a3b2a';c.lineWidth=2;c.beginPath();c.arc(x+6,y-64,5,.2,2.6);c.stroke()}c.shadowBlur=0}
+function draw(){const T=M[G.mi];
+ const gr=c.createLinearGradient(0,0,0,GY);gr.addColorStop(0,T.s0);gr.addColorStop(1,T.s1);c.fillStyle=gr;c.fillRect(0,0,W,H);
+ c.fillStyle='#ffe066';c.beginPath();c.arc(690,70,38,0,7);c.fill();
+ c.fillStyle='rgba(255,255,255,.9)';for(let i=0;i<4;i++){const x=((i*260-G.bg*.25)%1040+1040)%1040-120,y=80+i%2*40;c.beginPath();c.arc(x,y,26,0,7);c.arc(x+30,y-6,32,0,7);c.arc(x+60,y+2,24,0,7);c.fill()}
+ c.fillStyle=T.h;for(let i=0;i<4;i++){const x=((i*300-G.bg*.5)%1200+1200)%1200-150;c.beginPath();c.arc(x,GY+40,150,Math.PI,0);c.fill()}
+ c.fillStyle=T.g;c.fillRect(0,GY,W,H-GY);c.fillStyle='#8a5a2b';c.fillRect(0,GY+18,W,H-GY-18);
+ c.fillStyle='#6f4520';for(let i=0;i<12;i++)c.fillRect(((i*90-G.bg)%1080+1080)%1080-40,GY+34,30,6);
+ if(G.gate){const g=G.gate,q=G.qs[G.gi];c.fillStyle='#6b6f7a';c.fillRect(g.x,GY-170,7,170);if(q.fl)flag(c,q.fl,g.x+7,GY-170,96,64);else{c.fillStyle='#fff';c.fillRect(g.x+7,GY-170,80,64);c.strokeStyle='#888';c.strokeRect(g.x+7,GY-170,80,64);c.font='40px serif';c.textAlign='center';c.fillText(q.ic,g.x+47,GY-122)}c.fillStyle='#ffd43b';c.beginPath();c.arc(g.x+3,GY-172,7,0,7);c.fill()}
+ G.ob.forEach(o=>{c.fillStyle='#8d99ae';c.beginPath();c.moveTo(o.x,GY);c.quadraticCurveTo(o.x+o.w*.1,GY-o.h,o.x+o.w/2,GY-o.h);c.quadraticCurveTo(o.x+o.w*.95,GY-o.h,o.x+o.w,GY);c.fill();c.fillStyle='rgba(255,255,255,.35)';c.fillRect(o.x+o.w*.3,GY-o.h*.7,o.w*.2,5)});
+ c.font='34px serif';c.textAlign='center';G.fd.forEach(f=>c.fillText(FOOD[f.i][0],f.x,f.y+Math.sin(G.t*5+f.x)*4));
+ if(G.tb&&G.st=='run'){c.strokeStyle='rgba(255,255,255,.75)';c.lineWidth=3;for(let i=0;i<6;i++){const y=GY-30-i*38,x=((i*97-G.bg*1.5)%260+260)%260;c.beginPath();c.moveTo(x,y);c.lineTo(x+60,y);c.stroke()}}
+ c.fillStyle='rgba(0,0,0,.28)';c.beginPath();c.ellipse(PX,GY+4,Math.max(8,26-(GY-G.y)/8),6,0,0,7);c.fill();
+ if(G.inv<=0||Math.floor(G.inv*10)%2)kid(PX,G.y,G.t,G.y<GY,G.eat);
+ c.font='bold 20px sans-serif';c.fillStyle='#1f2a44';G.pp.forEach(p=>c.fillText(p.s,p.x,p.y));
+ c.fillStyle='rgba(255,255,255,.88)';c.fillRect(10,10,W-20,36);c.font='bold 22px sans-serif';c.fillStyle='#1f2a44';
+ c.textAlign='left';c.fillText('❤️'.repeat(Math.max(0,G.lives)),20,36);c.textAlign='center';c.fillText('⭐ '+G.score,W/2,36);c.textAlign='right';c.fillText('🚩 '+G.gi+'/'+G.qs.length,W-20,36)}
+function openQ(){
+ G.st='q';const q=G.qs[G.gi],n=G.qs.length,ans=q.o[0],last=G.gi+1>=n,
+ vis=q.fl?'<canvas id="fc" width="180" height="120" style="max-width:60%"></canvas>':`<div style="font-size:3.4rem">${q.ic}</div>`;
+ show(`<small>${M[G.mi].i} ${M[G.mi].n} · 🚩 ${G.gi+1}/${n}</small><br>${vis}<div class="q">${q.q} <button class="btn" id="sp" aria-label="Listen">🔊</button></div><div class="es" id="es">💡 ${q.es}</div><button class="btn" id="hp">💡 Ayuda en español</button><div class="opts">${sh(q.o).map(x=>`<button class="btn op">${x}</button>`).join('')}</div><div id="fb" aria-live="polite"></div>`);
+ if(q.fl)flag($('#fc').getContext('2d'),q.fl,4,4,172,112);
+ $('#sp').onclick=()=>say(q.q.replace(/<[^>]+>/g,' ').replace(/___/g,'blank'));$('#hp').onclick=()=>$('#es').classList.add('on');
+ const bs=[...ov.querySelectorAll('.op')];
+ bs.forEach(b=>b.onclick=()=>{
+  const ok=q.free||b.textContent==ans;bs.forEach(x=>{x.disabled=true;if(x.textContent==ans&&!q.free)x.classList.add('ok')});b.classList.add(ok?'ok':'no');
+  if(ok){G.score+=50;G.ok++;G.lives=Math.min(8,G.lives+1);beep(784,.15)}else beep(200,.2,'square');
+  const f=q.f?`<br>🌟 ${q.f[0]}<br><small>${q.f[1]}</small>`:'';
+  $('#fb').innerHTML=`<div class="fb ${ok?'ok':'no'}"><b>${ok?['Great job! 🎉','Excellent! 🌟','Super! 🚀'][G.gi%3]:'Almost! Casi 💪 → '+ans}</b>${f}</div><button class="btn pri" id="nx" style="margin-top:10px">${last?'Finish 🏁':'Keep running ➡️'}</button>`;
+  $('#nx').onclick=()=>{G.gi++;if(last)return done();G.gate=null;G.gt=0;G.so=1;G.ob=[];G.fd=[];G.inv=1;G.st='run';hide()};$('#nx').focus()})}
+function done(){G.st='win';const m=M[G.mi],n=G.qs.length,mi=G.mi,r=G.ok/n,st=r>=.9?3:r>=.6?2:1;S.st[mi]=Math.max(S.st[mi]||0,st);if(st>=2)S.bd[mi]=m.b;S.tot=G.score;boom();
+ const all=M.every((_,i)=>S.bd[i]);
+ show(`<p style="font-size:3rem;margin:0">${m.i}</p><h1>Mission complete!</h1><p class="q">${'⭐'.repeat(st)}${'☆'.repeat(3-st)}</p><p>${G.ok}/${n} correct · ⭐ ${G.score}</p><p>${st>=2?'Badge: <b>'+m.b+'</b> 🎁':'Play again to win the badge! Juega otra vez para ganar la insignia.'}</p>${all?'<div class="fb ok"><b>🏆 You are a Culture Champion!</b><br>Aprendiste inglés y descubriste que cada cultura, incluida la tuya, es valiosa. ¡Compártelo con tu familia!<br><i>Learning about other cultures helps us respect and celebrate them.</i></div>':''}<div class="opts">${mi<M.length-1?'<button class="btn pri" id="nm">Next mission ➡️</button>':''}<button class="btn" id="rp">🔁 Play again</button><button class="btn" id="mn">🏠 Menu</button></div>`);
+ if($('#nm'))$('#nm').onclick=()=>intro(mi+1);$('#rp').onclick=()=>intro(mi);$('#mn').onclick=menu}
+let last=0;function loop(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;if(G.st=='run')upd(dt);else if(G.st!='q'){G.bg+=90*dt;G.t+=dt}draw();requestAnimationFrame(loop)}
+menu();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
